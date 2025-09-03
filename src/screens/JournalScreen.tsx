@@ -4,8 +4,10 @@ import {
   FlatList,
   TouchableOpacity,
   Modal,
+  Alert,
 } from 'react-native';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import AppText from '../components/AppText';
 import Icon from '../components/Icon';
 import AppInput from '../components/AppInput';
@@ -17,37 +19,45 @@ interface Journal {
   description: string;
 }
 
-// Temporary data for demonstration
-const dummyJournals: Journal[] = [
-  {
-    id: '1',
-    title: 'My first journal entry',
-    date: '2025-09-03',
-    description:
-      'Started my journaling journey today. Felt excited and motivated.',
-  },
-  {
-    id: '2',
-    title: 'Today was a great day',
-    date: '2025-09-02',
-    description:
-      'Spent quality time with friends and family. Lots of laughter.',
-  },
-  {
-    id: '3',
-    title: 'Reflections on life',
-    date: '2025-09-01',
-    description:
-      'Thought deeply about my goals and aspirations for the future.',
-  },
-];
-
 export default function JournalScreen() {
+  const [previousJournals, setPreviousJournals] = useState<Journal[]>([]);
   const [showJournalModal, setShowJournalModal] = useState(false);
   const [createNewJournal, setCreateNewJournal] = useState(false);
   const [selectedJournal, setSelectedJournal] = useState<Journal | null>(null);
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
+
+  // Load journals from AsyncStorage on component mount
+  useEffect(() => {
+    const loadJournals = async () => {
+      try {
+        const savedJournals = await AsyncStorage.getItem('@journals');
+        if (savedJournals) {
+          setPreviousJournals(JSON.parse(savedJournals));
+        }
+      } catch (error) {
+        console.error('Error loading journals:', error);
+        Alert.alert('Error', 'Failed to load your journals');
+      }
+    };
+    loadJournals();
+  }, []);
+
+  // Save journals to AsyncStorage whenever they change
+  useEffect(() => {
+    const saveJournals = async () => {
+      try {
+        await AsyncStorage.setItem(
+          '@journals',
+          JSON.stringify(previousJournals),
+        );
+      } catch (error) {
+        console.error('Error saving journals:', error);
+        Alert.alert('Error', 'Failed to save your journal');
+      }
+    };
+    saveJournals();
+  }, [previousJournals]);
 
   const renderItem = ({ item }: { item: Journal }) => (
     <TouchableOpacity
@@ -68,7 +78,7 @@ export default function JournalScreen() {
   return (
     <View style={styles.container}>
       <FlatList
-        data={dummyJournals}
+        data={previousJournals}
         renderItem={renderItem}
         keyExtractor={item => item.id}
         style={styles.list}
@@ -167,12 +177,22 @@ export default function JournalScreen() {
                 alignItems: 'center',
               }}
               onPress={() => {
-                dummyJournals.push({
-                  id: `${dummyJournals.length + 1}`,
-                  title: newTitle,
-                  description: newDescription,
+                if (!newTitle.trim() || !newDescription.trim()) {
+                  Alert.alert(
+                    'Error',
+                    'Please fill in both title and description',
+                  );
+                  return;
+                }
+                const newJournal = {
+                  id: Date.now().toString(), // Using timestamp as id for uniqueness
+                  title: newTitle.trim(),
+                  description: newDescription.trim(),
                   date: new Date().toISOString().slice(0, 10),
-                });
+                };
+                setPreviousJournals(prev => [newJournal, ...prev]); // Add new journal at the beginning
+                setNewTitle('');
+                setNewDescription('');
                 setCreateNewJournal(false);
               }}
             >

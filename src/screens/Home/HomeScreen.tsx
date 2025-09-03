@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import AppDropdown from '../../components/Dropdown';
 import { HoroscopeDataType, HOROSCOPES } from './constants';
 import { fetchHoroscope } from '../../services';
@@ -20,6 +21,38 @@ export default function HomeScreen() {
 
   const navigation = useNavigation<any>();
 
+  // Load saved horoscope on initial render
+  useEffect(() => {
+    const loadSavedHoroscope = async () => {
+      try {
+        const savedHoroscope = await AsyncStorage.getItem(
+          '@selected_horoscope',
+        );
+        if (savedHoroscope) {
+          setSelectedHoroscope(JSON.parse(savedHoroscope));
+        }
+      } catch (error) {
+        console.error('Error loading saved horoscope:', error);
+      }
+    };
+    loadSavedHoroscope();
+  }, []);
+
+  // Save horoscope whenever it changes
+  const saveHoroscope = async () => {
+    try {
+      if (selectedHoroscope) {
+        await AsyncStorage.setItem(
+          '@selected_horoscope',
+          JSON.stringify(selectedHoroscope),
+        );
+      }
+    } catch (error) {
+      console.error('Error saving horoscope:', error);
+    }
+  };
+
+  // Fetch horoscope data when selected horoscope changes
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -29,7 +62,10 @@ export default function HomeScreen() {
         console.error('Error fetching horoscope:', error);
       }
     };
-    fetchData();
+    if (selectedHoroscope) {
+      fetchData();
+    }
+    saveHoroscope();
   }, [selectedHoroscope]);
 
   return (
